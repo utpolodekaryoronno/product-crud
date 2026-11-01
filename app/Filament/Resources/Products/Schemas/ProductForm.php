@@ -77,7 +77,7 @@ class ProductForm
                             ->numeric()
                             ->minValue(0)
                             ->step(0.01)
-                            ->prefix('$')
+                            ->prefix(config('shop.currency_symbol'))
                             ->default(0),
                         TextInput::make('stock')
                             ->required()

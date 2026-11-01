@@ -122,7 +122,7 @@
                     @endif
                     <div>
                         <dt class="text-slate-500">Shipping</dt>
-                        <dd class="mt-1 font-semibold text-slate-900">Free over {{ \App\Support\Money::format(75) }}</dd>
+                        <dd class="mt-1 font-semibold text-slate-900">Free on every order</dd>
                     </div>
                     <div>
                         <dt class="text-slate-500">Returns</dt>

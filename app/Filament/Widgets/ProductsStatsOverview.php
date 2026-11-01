@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Product;
+use App\Support\Money;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -30,7 +31,7 @@ class ProductsStatsOverview extends StatsOverviewWidget
                 ->description("{$active} visible in the storefront")
                 ->descriptionIcon('heroicon-m-shopping-bag')
                 ->color('primary'),
-            Stat::make('Inventory value', '$'.number_format($inventoryValue, 2))
+            Stat::make('Inventory value', Money::format($inventoryValue))
                 ->description('Retail value of stock on hand')
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color('info'),

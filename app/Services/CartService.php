@@ -61,21 +61,31 @@ class CartService
             ->get()
             ->keyBy('id');
 
-        $missing = array_diff(array_keys($contents), $products->keys()->all());
+        $adjusted = [];
 
-        if ($missing !== []) {
-            $this->forget($missing);
+        foreach ($contents as $productId => $quantity) {
+            $product = $products->get($productId);
+
+            if ($product) {
+                $adjusted[$productId] = min($quantity, $product->stock);
+            }
         }
 
-        return collect($contents)
+        if ($adjusted !== $contents) {
+            if ($adjusted === []) {
+                $this->clear();
+            } else {
+                $this->session->put(self::SESSION_KEY, $adjusted);
+            }
+        }
+
+        return collect($adjusted)
             ->map(function (int $quantity, int $productId) use ($products): ?array {
                 $product = $products->get($productId);
 
                 if (! $product) {
                     return null;
                 }
-
-                $quantity = max(1, min($quantity, $product->stock));
 
                 return [
                     'product' => $product,

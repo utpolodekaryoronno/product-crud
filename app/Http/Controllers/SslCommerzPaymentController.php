@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
 use App\Exceptions\SslCommerzException;
+use App\Mail\OrderConfirmation;
 use App\Models\Order;
 use App\Models\Product;
 use App\Services\CartService;
@@ -13,7 +14,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Throwable;
 
 class SslCommerzPaymentController extends Controller
 {
@@ -31,14 +34,14 @@ class SslCommerzPaymentController extends Controller
         }
 
         if ($order->isPaid()) {
+            $this->clearCheckoutCart($request, $order, $cart);
+
             return $this->confirmationRedirect($request, $order);
         }
 
         $validationId = $request->string('val_id')->toString();
 
         if ($validationId === '') {
-            $order->update(['status' => OrderStatus::Failed]);
-
             return redirect()
                 ->route('checkout.create')
                 ->with('error', 'The payment was not completed. Please try again.');
@@ -55,11 +58,6 @@ class SslCommerzPaymentController extends Controller
         }
 
         if (! $gateway->paymentMatchesOrder($validation, $order)) {
-            $order->update([
-                'status' => OrderStatus::Failed,
-                'val_id' => $validationId,
-            ]);
-
             return redirect()
                 ->route('checkout.create')
                 ->with('error', 'The payment details did not match this order.');
@@ -67,7 +65,7 @@ class SslCommerzPaymentController extends Controller
 
         $this->markAsPaid($order, $validationId);
 
-        $cart->clear();
+        $this->clearCheckoutCart($request, $order, $cart);
 
         return $this->confirmationRedirect($request, $order);
     }
@@ -75,14 +73,8 @@ class SslCommerzPaymentController extends Controller
     /**
      * Handle the browser redirect after a failed payment.
      */
-    public function fail(Request $request): RedirectResponse
+    public function fail(): RedirectResponse
     {
-        $order = $this->findOrder($request);
-
-        if ($order && ! $order->isPaid()) {
-            $order->update(['status' => OrderStatus::Failed]);
-        }
-
         return redirect()
             ->route('checkout.create')
             ->with('error', 'The payment was not completed. You can try again.');
@@ -91,14 +83,8 @@ class SslCommerzPaymentController extends Controller
     /**
      * Handle the browser redirect after the customer cancels the payment.
      */
-    public function cancel(Request $request): RedirectResponse
+    public function cancel(): RedirectResponse
     {
-        $order = $this->findOrder($request);
-
-        if ($order && ! $order->isPaid()) {
-            $order->update(['status' => OrderStatus::Cancelled]);
-        }
-
         return redirect()
             ->route('cart.index')
             ->with('error', 'The payment was cancelled. Your cart is still waiting for you.');
@@ -166,7 +152,7 @@ class SslCommerzPaymentController extends Controller
             $this->markAsPaid($order, 'TEST-'.Str::upper(Str::random(12)));
         }
 
-        $cart->clear();
+        $this->clearCheckoutCart($request, $order, $cart);
 
         return $this->confirmationRedirect($request, $order);
     }
@@ -229,11 +215,12 @@ class SslCommerzPaymentController extends Controller
     }
 
     /**
-     * Mark the order as paid and reduce product stock exactly once.
+     * Mark the order as paid, reduce product stock and email the customer.
+     * Only the call that transitions the order from pending sends the email.
      */
     private function markAsPaid(Order $order, string $validationId): void
     {
-        DB::transaction(function () use ($order, $validationId): void {
+        $transitioned = DB::transaction(function () use ($order, $validationId): bool {
             $updated = Order::query()
                 ->whereKey($order->id)
                 ->where('status', OrderStatus::Pending->value)
@@ -244,7 +231,7 @@ class SslCommerzPaymentController extends Controller
                 ]);
 
             if ($updated === 0) {
-                return;
+                return false;
             }
 
             $order->loadMissing('items');
@@ -259,15 +246,43 @@ class SslCommerzPaymentController extends Controller
                     ->where('stock', '>=', $item->quantity)
                     ->decrement('stock', $item->quantity);
             }
+
+            return true;
         });
+
+        if (! $transitioned) {
+            return;
+        }
+
+        $order->refresh()->load('items');
+
+        try {
+            Mail::to($order->customer_email)->send(new OrderConfirmation($order));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**
-     * Remember the order and send the customer to its confirmation page.
+     * Clear only the cart associated with the current checkout session.
+     */
+    private function clearCheckoutCart(Request $request, Order $order, CartService $cart): void
+    {
+        if ((int) $request->session()->get('checkout.order_id') === $order->id) {
+            $cart->clear();
+        }
+    }
+
+    /**
+     * Redirect to the confirmation page without granting access to other sessions.
      */
     private function confirmationRedirect(Request $request, Order $order): RedirectResponse
     {
-        $request->session()->put('checkout.order_id', $order->id);
+        if ((int) $request->session()->get('checkout.order_id') !== $order->id) {
+            return redirect()
+                ->route('products.index')
+                ->with('status', 'Payment received. An order confirmation will be sent to the customer email address.');
+        }
 
         return redirect()->route('checkout.confirmation', $order);
     }

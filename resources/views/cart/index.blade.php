@@ -115,7 +115,7 @@
                         </div>
                         <div class="flex items-center justify-between">
                             <dt class="text-slate-500">Shipping</dt>
-                            <dd class="text-slate-500">Free over {{ \App\Support\Money::format(75) }}</dd>
+                            <dd class="text-slate-500">Free</dd>
                         </div>
                     </dl>
 

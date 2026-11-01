@@ -49,6 +49,20 @@ class CartTest extends TestCase
         $this->assertSame([$product->id => 3], session('cart.items'));
     }
 
+    public function test_cart_quantities_are_reconciled_when_stock_changes(): void
+    {
+        $product = Product::factory()->active()->create(['stock' => 5]);
+
+        $this->withSession(['cart.items' => [$product->id => 5]]);
+        $product->update(['stock' => 2]);
+
+        $this->get(route('cart.index'))
+            ->assertOk()
+            ->assertSee('2 items');
+
+        $this->assertSame([$product->id => 2], session('cart.items'));
+    }
+
     public function test_cart_items_can_be_updated_and_removed(): void
     {
         $product = Product::factory()->active()->create(['stock' => 10]);

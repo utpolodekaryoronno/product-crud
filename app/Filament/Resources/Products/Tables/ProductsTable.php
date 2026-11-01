@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Products\Tables;
 
 use App\Models\Product;
+use App\Support\Money;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -50,7 +51,7 @@ class ProductsTable
                     ->limitList(2)
                     ->toggleable(),
                 TextColumn::make('price')
-                    ->money('usd')
+                    ->formatStateUsing(fn (string $state): string => Money::format($state))
                     ->sortable(),
                 TextColumn::make('stock')
                     ->badge()
@@ -99,11 +100,11 @@ class ProductsTable
                         TextInput::make('price_from')
                             ->label('From')
                             ->numeric()
-                            ->prefix('$'),
+                            ->prefix(config('shop.currency_symbol')),
                         TextInput::make('price_to')
                             ->label('To')
                             ->numeric()
-                            ->prefix('$'),
+                            ->prefix(config('shop.currency_symbol')),
                     ])
                     ->columns(2)
                     ->query(fn (Builder $query, array $data): Builder => $query

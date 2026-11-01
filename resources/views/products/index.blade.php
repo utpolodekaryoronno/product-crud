@@ -11,7 +11,7 @@
         <div class="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
             <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">
                 <span class="size-1.5 rounded-full bg-amber-300"></span>
-                Free shipping over {{ \App\Support\Money::format(75) }}
+                Free shipping on every order
             </span>
 
             <h1 class="mt-6 max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl lg:text-6xl">

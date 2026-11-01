@@ -17,7 +17,7 @@
                         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-600">{{ $order->status->label() }}</p>
                         <h1 class="mt-1 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">Thank you for your order</h1>
                         <p class="mt-1 text-sm text-slate-500">
-                            A confirmation has been recorded for <span class="font-semibold text-slate-700">{{ $order->customer_email }}</span>.
+                            Your order details will be emailed to <span class="font-semibold text-slate-700">{{ $order->customer_email }}</span>.
                         </p>
                     </div>
                 </div>
