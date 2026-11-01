@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Brand;
+use App\Models\Category;
 use App\Models\Product;
+use App\Models\Tag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -53,6 +56,57 @@ class ProductFrontendTest extends TestCase
             ->assertOk()
             ->assertSee('Aurora Desk Lamp')
             ->assertSee('A warm and dimmable lamp for late-night reading.');
+    }
+
+    public function test_products_can_be_filtered_by_brand_category_and_tag(): void
+    {
+        $brand = Brand::factory()->create(['brand_name' => 'Alpine Works', 'brand_slug' => 'alpine-works']);
+        $category = Category::factory()->create(['category_name' => 'Bags and Travel', 'category_slug' => 'bags-and-travel']);
+        $tag = Tag::factory()->create(['tag_name' => 'Bestseller', 'tag_slug' => 'bestseller']);
+
+        $matching = Product::factory()->active()->create([
+            'product_name' => 'Alpine Daypack',
+            'brand_id' => $brand->id,
+            'category_id' => $category->id,
+        ]);
+        $matching->tags()->attach($tag);
+
+        Product::factory()->active()->create(['product_name' => 'Ceramic Pour Over']);
+
+        $this->get('/?brand=alpine-works')
+            ->assertOk()
+            ->assertSee('Alpine Daypack')
+            ->assertDontSee('Ceramic Pour Over');
+
+        $this->get('/?category=bags-and-travel')
+            ->assertOk()
+            ->assertSee('Alpine Daypack')
+            ->assertDontSee('Ceramic Pour Over');
+
+        $this->get('/?tag=bestseller')
+            ->assertOk()
+            ->assertSee('Alpine Daypack')
+            ->assertDontSee('Ceramic Pour Over');
+    }
+
+    public function test_a_product_detail_page_shows_its_brand_category_and_tags(): void
+    {
+        $brand = Brand::factory()->create(['brand_name' => 'Alpine Works', 'brand_slug' => 'alpine-works']);
+        $category = Category::factory()->create(['category_name' => 'Bags and Travel', 'category_slug' => 'bags-and-travel']);
+        $tag = Tag::factory()->create(['tag_name' => 'Bestseller', 'tag_slug' => 'bestseller']);
+
+        $product = Product::factory()->active()->create([
+            'product_name' => 'Alpine Daypack',
+            'brand_id' => $brand->id,
+            'category_id' => $category->id,
+        ]);
+        $product->tags()->attach($tag);
+
+        $this->get(route('products.show', $product))
+            ->assertOk()
+            ->assertSee('Alpine Works')
+            ->assertSee('Bags and Travel')
+            ->assertSee('Bestseller');
     }
 
     public function test_hidden_products_return_a_not_found_response(): void

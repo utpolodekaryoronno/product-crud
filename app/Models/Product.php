@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasUniqueSlug;
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 #[Fillable([
     'product_name',
@@ -17,12 +19,14 @@ use Illuminate\Support\Str;
     'price',
     'stock',
     'product_thumbnail',
+    'brand_id',
+    'category_id',
     'is_active',
 ])]
 class Product extends Model
 {
     /** @use HasFactory<ProductFactory> */
-    use HasFactory;
+    use HasFactory, HasUniqueSlug;
 
     /**
      * Get the attributes that should be cast.
@@ -46,33 +50,38 @@ class Product extends Model
         return 'product_slug';
     }
 
-    protected static function booted(): void
+    protected static function slugColumn(): string
     {
-        static::saving(function (Product $product): void {
-            if (blank($product->product_slug)) {
-                $product->product_slug = static::generateUniqueSlug($product->product_name, $product->getKey());
-            }
-        });
+        return 'product_slug';
+    }
+
+    protected static function slugSourceColumn(): string
+    {
+        return 'product_name';
     }
 
     /**
-     * Build a slug that does not collide with another product.
+     * @return BelongsTo<Brand, $this>
      */
-    public static function generateUniqueSlug(string $name, ?int $ignoreId = null): string
+    public function brand(): BelongsTo
     {
-        $baseSlug = Str::slug($name) ?: 'product';
-        $slug = $baseSlug;
-        $suffix = 2;
+        return $this->belongsTo(Brand::class);
+    }
 
-        while (static::query()
-            ->where('product_slug', $slug)
-            ->when($ignoreId, fn (Builder $query) => $query->whereKeyNot($ignoreId))
-            ->exists()) {
-            $slug = "{$baseSlug}-{$suffix}";
-            $suffix++;
-        }
+    /**
+     * @return BelongsTo<Category, $this>
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
 
-        return $slug;
+    /**
+     * @return BelongsToMany<Tag, $this>
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class);
     }
 
     /**
@@ -100,6 +109,33 @@ class Product extends Model
             $query->where('product_name', 'like', $term)
                 ->orWhere('description', 'like', $term);
         });
+    }
+
+    /**
+     * Scope a query to products that belong to the given brand slug.
+     */
+    public function scopeForBrand(Builder $query, ?string $brandSlug): Builder
+    {
+        return $query->when($brandSlug, fn (Builder $query, string $slug) => $query
+            ->whereHas('brand', fn (Builder $query) => $query->where('brand_slug', $slug)));
+    }
+
+    /**
+     * Scope a query to products that belong to the given category slug.
+     */
+    public function scopeForCategory(Builder $query, ?string $categorySlug): Builder
+    {
+        return $query->when($categorySlug, fn (Builder $query, string $slug) => $query
+            ->whereHas('category', fn (Builder $query) => $query->where('category_slug', $slug)));
+    }
+
+    /**
+     * Scope a query to products that carry the given tag slug.
+     */
+    public function scopeForTag(Builder $query, ?string $tagSlug): Builder
+    {
+        return $query->when($tagSlug, fn (Builder $query, string $slug) => $query
+            ->whereHas('tags', fn (Builder $query) => $query->where('tag_slug', $slug)));
     }
 
     /**

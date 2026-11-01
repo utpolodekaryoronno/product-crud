@@ -22,6 +22,16 @@
             </p>
 
             <form method="GET" action="{{ route('products.index') }}" class="mt-9 flex flex-col gap-3 sm:flex-row">
+                @if ($brandSlug !== '')
+                    <input type="hidden" name="brand" value="{{ $brandSlug }}">
+                @endif
+                @if ($categorySlug !== '')
+                    <input type="hidden" name="category" value="{{ $categorySlug }}">
+                @endif
+                @if ($tagSlug !== '')
+                    <input type="hidden" name="tag" value="{{ $tagSlug }}">
+                @endif
+
                 <div class="relative flex-1">
                     <svg class="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                         <circle cx="11" cy="11" r="7"/>
@@ -60,12 +70,22 @@
         </div>
     </section>
 
+    @php
+        $selectedBrand = $brands->firstWhere('brand_slug', $brandSlug);
+        $selectedCategory = $categories->firstWhere('category_slug', $categorySlug);
+        $selectedTag = $tags->firstWhere('tag_slug', $tagSlug);
+        $hasActiveFilters = $selectedBrand || $selectedCategory || $selectedTag;
+        $hasAnyFilter = $search !== '' || $sort !== 'newest' || $hasActiveFilters;
+    @endphp
+
     <section class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
                 <h2 class="text-2xl font-semibold tracking-tight text-slate-900">
                     @if ($search !== '')
                         Results for &ldquo;{{ $search }}&rdquo;
+                    @elseif ($hasActiveFilters)
+                        Filtered products
                     @else
                         Shop all products
                     @endif
@@ -78,7 +98,7 @@
                 </p>
             </div>
 
-            @if ($search !== '' || $sort !== 'newest')
+            @if ($hasAnyFilter)
                 <a href="{{ route('products.index') }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-slate-900">
                     Reset filters
                     <svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
@@ -87,6 +107,85 @@
                 </a>
             @endif
         </div>
+
+        <form method="GET" action="{{ route('products.index') }}" class="mt-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            @if ($search !== '')
+                <input type="hidden" name="search" value="{{ $search }}">
+            @endif
+            @if ($sort !== 'newest')
+                <input type="hidden" name="sort" value="{{ $sort }}">
+            @endif
+
+            <div class="min-w-40 flex-1">
+                <label for="brand" class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Brand</label>
+                <select id="brand" name="brand" onchange="this.form.submit()" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200">
+                    <option value="">All brands</option>
+                    @foreach ($brands as $brand)
+                        <option value="{{ $brand->brand_slug }}" @selected($brandSlug === $brand->brand_slug)>{{ $brand->brand_name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="min-w-40 flex-1">
+                <label for="category" class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Category</label>
+                <select id="category" name="category" onchange="this.form.submit()" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200">
+                    <option value="">All categories</option>
+                    @foreach ($categories as $category)
+                        <option value="{{ $category->category_slug }}" @selected($categorySlug === $category->category_slug)>{{ $category->category_name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="min-w-40 flex-1">
+                <label for="tag" class="mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Tag</label>
+                <select id="tag" name="tag" onchange="this.form.submit()" class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200">
+                    <option value="">All tags</option>
+                    @foreach ($tags as $tag)
+                        <option value="{{ $tag->tag_slug }}" @selected($tagSlug === $tag->tag_slug)>{{ $tag->tag_name }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <button type="submit" class="h-10 rounded-lg bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800">
+                Apply
+            </button>
+        </form>
+
+        @if ($hasActiveFilters)
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+                <span class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Active filters</span>
+
+                @if ($selectedBrand)
+                    <a
+                        href="{{ route('products.index', array_filter(['search' => $search ?: null, 'sort' => $sort !== 'newest' ? $sort : null, 'category' => $categorySlug ?: null, 'tag' => $tagSlug ?: null])) }}"
+                        class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-slate-700"
+                    >
+                        Brand: {{ $selectedBrand->brand_name }}
+                        <svg class="size-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke-linecap="round"/></svg>
+                    </a>
+                @endif
+
+                @if ($selectedCategory)
+                    <a
+                        href="{{ route('products.index', array_filter(['search' => $search ?: null, 'sort' => $sort !== 'newest' ? $sort : null, 'brand' => $brandSlug ?: null, 'tag' => $tagSlug ?: null])) }}"
+                        class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-slate-700"
+                    >
+                        Category: {{ $selectedCategory->category_name }}
+                        <svg class="size-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke-linecap="round"/></svg>
+                    </a>
+                @endif
+
+                @if ($selectedTag)
+                    <a
+                        href="{{ route('products.index', array_filter(['search' => $search ?: null, 'sort' => $sort !== 'newest' ? $sort : null, 'brand' => $brandSlug ?: null, 'category' => $categorySlug ?: null])) }}"
+                        class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-slate-700"
+                    >
+                        Tag: {{ $selectedTag->tag_name }}
+                        <svg class="size-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l8 8M14 6l-8 8" stroke-linecap="round"/></svg>
+                    </a>
+                @endif
+            </div>
+        @endif
 
         @if ($products->isEmpty())
             <div class="mt-10 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
@@ -98,7 +197,7 @@
                 </span>
                 <h3 class="mt-4 text-base font-semibold text-slate-900">No products found</h3>
                 <p class="mx-auto mt-1 max-w-sm text-sm text-slate-500">
-                    We could not find anything matching your search. Try a different keyword or browse the full collection.
+                    We could not find anything matching those filters. Try a different keyword, brand or category.
                 </p>
                 <a href="{{ route('products.index') }}" class="mt-5 inline-flex h-10 items-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800">
                     Browse all products

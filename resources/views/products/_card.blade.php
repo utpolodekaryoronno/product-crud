@@ -20,14 +20,38 @@
         </div>
 
         <div class="p-5">
-            <h2 class="truncate text-base font-semibold tracking-tight text-slate-900">
+            @if ($product->category || $product->brand)
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                    @if ($product->category)
+                        <span>{{ $product->category->category_name }}</span>
+                    @endif
+                    @if ($product->category && $product->brand)
+                        <span aria-hidden="true">&middot;</span>
+                    @endif
+                    @if ($product->brand)
+                        <span>{{ $product->brand->brand_name }}</span>
+                    @endif
+                </div>
+            @endif
+
+            <h2 class="mt-1.5 truncate text-base font-semibold tracking-tight text-slate-900">
                 {{ $product->product_name }}
             </h2>
             <p class="mt-1.5 line-clamp-2 text-sm leading-relaxed text-slate-500">
                 {{ $product->description }}
             </p>
 
-            <div class="mt-5 flex items-center justify-between">
+            @if ($product->tags->isNotEmpty())
+                <div class="mt-3 flex flex-wrap gap-1.5">
+                    @foreach ($product->tags->take(2) as $tag)
+                        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                            {{ $tag->tag_name }}
+                        </span>
+                    @endforeach
+                </div>
+            @endif
+
+            <div class="mt-4 flex items-center justify-between">
                 <span class="text-lg font-semibold tracking-tight text-slate-900">
                     ${{ number_format((float) $product->price, 2) }}
                 </span>

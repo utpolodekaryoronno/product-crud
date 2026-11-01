@@ -2,7 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\Brand;
+use App\Models\Category;
 use App\Models\Product;
+use App\Models\Tag;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -12,7 +15,7 @@ class ProductSeeder extends Seeder
     /**
      * Curated demo catalogue used by the storefront and the admin panel.
      *
-     * @var array<int, array{name: string, description: string, price: float, stock: int, active: bool, colors: array{0: string, 1: string}}>
+     * @var array<int, array{name: string, description: string, price: float, stock: int, active: bool, colors: array{0: string, 1: string}, brand: string, category: string, tags: array<int, string>}>
      */
     private const PRODUCTS = [
         [
@@ -22,6 +25,9 @@ class ProductSeeder extends Seeder
             'stock' => 24,
             'active' => true,
             'colors' => ['#f59e0b', '#b45309'],
+            'brand' => 'Lumen Home',
+            'category' => 'Lighting',
+            'tags' => ['Bestseller', 'New Arrival'],
         ],
         [
             'name' => 'Kanso Ceramic Mug',
@@ -30,6 +36,9 @@ class ProductSeeder extends Seeder
             'stock' => 80,
             'active' => true,
             'colors' => ['#38bdf8', '#0369a1'],
+            'brand' => 'Kanso Studio',
+            'category' => 'Kitchen & Dining',
+            'tags' => ['Handmade', 'Gift Idea'],
         ],
         [
             'name' => 'Terra Linen Throw',
@@ -38,6 +47,9 @@ class ProductSeeder extends Seeder
             'stock' => 18,
             'active' => true,
             'colors' => ['#fb7185', '#9f1239'],
+            'brand' => 'Loom & Thread',
+            'category' => 'Textiles',
+            'tags' => ['Eco Friendly', 'Bestseller'],
         ],
         [
             'name' => 'Nimbus Wireless Speaker',
@@ -46,6 +58,9 @@ class ProductSeeder extends Seeder
             'stock' => 35,
             'active' => true,
             'colors' => ['#a78bfa', '#5b21b6'],
+            'brand' => 'Alpine Works',
+            'category' => 'Audio',
+            'tags' => ['New Arrival', 'Limited Edition'],
         ],
         [
             'name' => 'Alpine Daypack',
@@ -54,6 +69,9 @@ class ProductSeeder extends Seeder
             'stock' => 42,
             'active' => true,
             'colors' => ['#34d399', '#065f46'],
+            'brand' => 'Alpine Works',
+            'category' => 'Bags & Travel',
+            'tags' => ['Bestseller', 'Eco Friendly'],
         ],
         [
             'name' => 'Grove Cutting Board',
@@ -62,6 +80,9 @@ class ProductSeeder extends Seeder
             'stock' => 60,
             'active' => true,
             'colors' => ['#fbbf24', '#92400e'],
+            'brand' => 'Grove & Grain',
+            'category' => 'Kitchen & Dining',
+            'tags' => ['Handmade', 'Eco Friendly'],
         ],
         [
             'name' => 'Halo Wall Clock',
@@ -70,6 +91,9 @@ class ProductSeeder extends Seeder
             'stock' => 12,
             'active' => true,
             'colors' => ['#94a3b8', '#334155'],
+            'brand' => 'Lumen Home',
+            'category' => 'Home Decor',
+            'tags' => ['Limited Edition'],
         ],
         [
             'name' => 'Ember Pour-Over Set',
@@ -78,6 +102,9 @@ class ProductSeeder extends Seeder
             'stock' => 0,
             'active' => true,
             'colors' => ['#f97316', '#7c2d12'],
+            'brand' => 'Ember Supply',
+            'category' => 'Kitchen & Dining',
+            'tags' => ['Bestseller', 'Gift Idea'],
         ],
         [
             'name' => 'Drift Cotton Towels',
@@ -86,6 +113,9 @@ class ProductSeeder extends Seeder
             'stock' => 95,
             'active' => true,
             'colors' => ['#22d3ee', '#155e75'],
+            'brand' => 'Loom & Thread',
+            'category' => 'Textiles',
+            'tags' => ['Eco Friendly'],
         ],
         [
             'name' => 'Solstice Scented Candle',
@@ -94,6 +124,9 @@ class ProductSeeder extends Seeder
             'stock' => 70,
             'active' => true,
             'colors' => ['#facc15', '#854d0e'],
+            'brand' => 'Ember Supply',
+            'category' => 'Home Decor',
+            'tags' => ['Handmade', 'Gift Idea'],
         ],
         [
             'name' => 'Vertex Notebook',
@@ -102,6 +135,9 @@ class ProductSeeder extends Seeder
             'stock' => 120,
             'active' => true,
             'colors' => ['#818cf8', '#312e81'],
+            'brand' => 'Kanso Studio',
+            'category' => 'Desk & Stationery',
+            'tags' => ['New Arrival'],
         ],
         [
             'name' => 'Loom Woven Basket',
@@ -110,6 +146,9 @@ class ProductSeeder extends Seeder
             'stock' => 8,
             'active' => true,
             'colors' => ['#d6d3d1', '#57534e'],
+            'brand' => 'Loom & Thread',
+            'category' => 'Home Decor',
+            'tags' => ['Handmade', 'Eco Friendly'],
         ],
         [
             'name' => 'Archive Canvas Tote',
@@ -118,6 +157,9 @@ class ProductSeeder extends Seeder
             'stock' => 0,
             'active' => false,
             'colors' => ['#cbd5e1', '#1e293b'],
+            'brand' => 'Grove & Grain',
+            'category' => 'Bags & Travel',
+            'tags' => ['Limited Edition'],
         ],
     ];
 
@@ -140,8 +182,20 @@ class ProductSeeder extends Seeder
                     'price' => $product['price'],
                     'stock' => $product['stock'],
                     'product_thumbnail' => $thumbnail,
+                    'brand_id' => Brand::query()
+                        ->where('brand_slug', Str::slug($product['brand']))
+                        ->value('id'),
+                    'category_id' => Category::query()
+                        ->where('category_slug', Str::slug($product['category']))
+                        ->value('id'),
                     'is_active' => $product['active'],
                 ],
+            );
+
+            $record->tags()->sync(
+                Tag::query()
+                    ->whereIn('tag_slug', array_map(fn (string $tag): string => Str::slug($tag), $product['tags']))
+                    ->pluck('id'),
             );
 
             $record->forceFill([

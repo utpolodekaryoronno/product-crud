@@ -7,6 +7,14 @@
     <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <nav class="flex items-center gap-2 text-sm text-slate-500" aria-label="Breadcrumb">
             <a href="{{ route('products.index') }}" class="transition hover:text-slate-900">Shop</a>
+            @if ($product->category)
+                <svg class="size-4 text-slate-300" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                    <path d="m8 5 5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <a href="{{ route('products.index', ['category' => $product->category->category_slug]) }}" class="transition hover:text-slate-900">
+                    {{ $product->category->category_name }}
+                </a>
+            @endif
             <svg class="size-4 text-slate-300" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                 <path d="m8 5 5 5-5 5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
@@ -24,9 +32,11 @@
 
             <div class="flex flex-col justify-center">
                 <div class="flex flex-wrap items-center gap-3">
-                    <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-                        Curated collection
-                    </span>
+                    @if ($product->category)
+                        <a href="{{ route('products.index', ['category' => $product->category->category_slug]) }}" class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:bg-slate-200">
+                            {{ $product->category->category_name }}
+                        </a>
+                    @endif
 
                     @if ($product->is_out_of_stock)
                         <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
@@ -50,6 +60,25 @@
                     {{ $product->product_name }}
                 </h1>
 
+                @if ($product->brand)
+                    <p class="mt-2 text-sm text-slate-500">
+                        by
+                        <a href="{{ route('products.index', ['brand' => $product->brand->brand_slug]) }}" class="font-semibold text-slate-900 underline-offset-4 transition hover:underline">
+                            {{ $product->brand->brand_name }}
+                        </a>
+                    </p>
+                @endif
+
+                @if ($product->tags->isNotEmpty())
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        @foreach ($product->tags as $tag)
+                            <a href="{{ route('products.index', ['tag' => $tag->tag_slug]) }}" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-200">
+                                {{ $tag->tag_name }}
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
+
                 <p class="mt-4 text-3xl font-semibold tracking-tight text-slate-900">
                     ${{ number_format((float) $product->price, 2) }}
                 </p>
@@ -70,6 +99,18 @@
                         <dt class="text-slate-500">Availability</dt>
                         <dd class="mt-1 font-semibold text-slate-900">{{ $product->stock_label }}</dd>
                     </div>
+                    @if ($product->brand)
+                        <div>
+                            <dt class="text-slate-500">Brand</dt>
+                            <dd class="mt-1 font-semibold text-slate-900">{{ $product->brand->brand_name }}</dd>
+                        </div>
+                    @endif
+                    @if ($product->category)
+                        <div>
+                            <dt class="text-slate-500">Category</dt>
+                            <dd class="mt-1 font-semibold text-slate-900">{{ $product->category->category_name }}</dd>
+                        </div>
+                    @endif
                     <div>
                         <dt class="text-slate-500">Shipping</dt>
                         <dd class="mt-1 font-semibold text-slate-900">Free over $75</dd>

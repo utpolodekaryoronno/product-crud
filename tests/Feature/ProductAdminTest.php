@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\Brands\Pages\CreateBrand;
 use App\Filament\Resources\Products\Pages\CreateProduct;
 use App\Filament\Resources\Products\Pages\EditProduct;
 use App\Models\Product;
@@ -42,6 +43,40 @@ class ProductAdminTest extends TestCase
         $this->get('/admin/products/create')
             ->assertOk()
             ->assertSee('Product details');
+    }
+
+    public function test_an_admin_can_manage_brands_categories_and_tags(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $this->get('/admin/brands')->assertOk()->assertSee('Brands');
+        $this->get('/admin/brands/create')->assertOk()->assertSee('Brand details');
+
+        $this->get('/admin/categories')->assertOk()->assertSee('Categories');
+        $this->get('/admin/categories/create')->assertOk()->assertSee('Category details');
+
+        $this->get('/admin/tags')->assertOk()->assertSee('Tags');
+        $this->get('/admin/tags/create')->assertOk()->assertSee('Tag details');
+    }
+
+    public function test_an_admin_can_create_a_brand(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        Livewire::test(CreateBrand::class)
+            ->fillForm([
+                'brand_name' => 'Test Brand',
+                'brand_slug' => 'test-brand',
+                'is_active' => true,
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('brands', [
+            'brand_name' => 'Test Brand',
+            'brand_slug' => 'test-brand',
+            'is_active' => true,
+        ]);
     }
 
     public function test_an_admin_can_create_a_product(): void

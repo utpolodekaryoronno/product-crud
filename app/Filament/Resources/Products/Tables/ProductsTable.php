@@ -36,6 +36,19 @@ class ProductsTable
                     ->searchable()
                     ->sortable()
                     ->description(fn (Product $record): string => Str::limit($record->product_slug, 48)),
+                TextColumn::make('brand.brand_name')
+                    ->label('Brand')
+                    ->searchable()
+                    ->toggleable(),
+                TextColumn::make('category.category_name')
+                    ->label('Category')
+                    ->searchable()
+                    ->toggleable(),
+                TextColumn::make('tags.tag_name')
+                    ->label('Tags')
+                    ->badge()
+                    ->limitList(2)
+                    ->toggleable(),
                 TextColumn::make('price')
                     ->money('usd')
                     ->sortable(),
@@ -59,6 +72,21 @@ class ProductsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('brand_id')
+                    ->label('Brand')
+                    ->relationship('brand', 'brand_name')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('category_id')
+                    ->label('Category')
+                    ->relationship('category', 'category_name')
+                    ->searchable()
+                    ->preload(),
+                SelectFilter::make('tags')
+                    ->label('Tag')
+                    ->relationship('tags', 'tag_name')
+                    ->searchable()
+                    ->preload(),
                 SelectFilter::make('is_active')
                     ->label('Visibility')
                     ->options([
