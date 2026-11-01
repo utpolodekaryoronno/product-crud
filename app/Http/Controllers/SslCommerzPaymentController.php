@@ -4,22 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Enums\OrderStatus;
 use App\Exceptions\SslCommerzException;
-use App\Mail\OrderConfirmation;
 use App\Models\Order;
-use App\Models\Product;
 use App\Services\CartService;
+use App\Services\PaidOrderService;
 use App\Services\SslCommerzService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use Throwable;
 
 class SslCommerzPaymentController extends Controller
 {
+    public function __construct(private readonly PaidOrderService $paidOrders) {}
+
     /**
      * Handle the browser redirect after a successful payment.
      */
@@ -63,7 +61,7 @@ class SslCommerzPaymentController extends Controller
                 ->with('error', 'The payment details did not match this order.');
         }
 
-        $this->markAsPaid($order, $validationId);
+        $this->paidOrders->markAsPaid($order, $validationId);
 
         $this->clearCheckoutCart($request, $order, $cart);
 
@@ -118,7 +116,7 @@ class SslCommerzPaymentController extends Controller
             return response()->json(['status' => 'mismatch'], 422);
         }
 
-        $this->markAsPaid($order, $validationId);
+        $this->paidOrders->markAsPaid($order, $validationId);
 
         return response()->json(['status' => 'ok']);
     }
@@ -149,7 +147,7 @@ class SslCommerzPaymentController extends Controller
         $this->authorizeSimulatedOrder($request, $order, $gateway);
 
         if (! $order->isPaid()) {
-            $this->markAsPaid($order, 'TEST-'.Str::upper(Str::random(12)));
+            $this->paidOrders->markAsPaid($order, 'TEST-'.Str::upper(Str::random(12)));
         }
 
         $this->clearCheckoutCart($request, $order, $cart);
@@ -212,55 +210,6 @@ class SslCommerzPaymentController extends Controller
         return Order::query()
             ->where('tran_id', $transactionId)
             ->first();
-    }
-
-    /**
-     * Mark the order as paid, reduce product stock and email the customer.
-     * Only the call that transitions the order from pending sends the email.
-     */
-    private function markAsPaid(Order $order, string $validationId): void
-    {
-        $transitioned = DB::transaction(function () use ($order, $validationId): bool {
-            $updated = Order::query()
-                ->whereKey($order->id)
-                ->where('status', OrderStatus::Pending->value)
-                ->update([
-                    'status' => OrderStatus::Paid->value,
-                    'val_id' => $validationId,
-                    'paid_at' => now(),
-                ]);
-
-            if ($updated === 0) {
-                return false;
-            }
-
-            $order->loadMissing('items');
-
-            foreach ($order->items as $item) {
-                if (! $item->product_id) {
-                    continue;
-                }
-
-                Product::query()
-                    ->whereKey($item->product_id)
-                    ->where('stock', '>=', $item->quantity)
-                    ->decrement('stock', $item->quantity);
-            }
-
-            return true;
-        });
-
-        if (! $transitioned) {
-            return;
-        }
-
-        $order->refresh()->load('items');
-
-        try {
-            Mail::to($order->customer_email)->send(new OrderConfirmation($order));
-        } catch (Throwable $exception) {
-            report($exception);
-        }
     }
 
     /**

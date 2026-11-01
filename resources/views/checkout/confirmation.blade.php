@@ -42,7 +42,7 @@
                 <div>
                     <h2 class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Payment</h2>
                     <p class="mt-2 text-sm leading-relaxed text-slate-600">
-                        <span class="block font-semibold text-slate-900">SSLCommerz</span>
+                        <span class="block font-semibold text-slate-900">{{ $order->payment_gateway === 'paypal' ? 'PayPal' : 'SSLCommerz' }}</span>
                         @if ($order->paid_at)
                             <span class="block">Paid {{ $order->paid_at->format('d M Y, H:i') }}</span>
                         @endif

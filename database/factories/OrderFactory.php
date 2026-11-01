@@ -32,6 +32,7 @@ class OrderFactory extends Factory
             'status' => OrderStatus::Pending,
             'payment_gateway' => 'sslcommerz',
             'tran_id' => 'TXN-'.fake()->unique()->bothify('????????????????'),
+            'paypal_order_id' => null,
             'val_id' => null,
             'paid_at' => null,
         ];

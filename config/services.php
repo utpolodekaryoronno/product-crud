@@ -35,6 +35,12 @@ return [
         ],
     ],
 
+    'paypal' => [
+        'client_id' => env('PAYPAL_CLIENT_ID'),
+        'client_secret' => env('PAYPAL_CLIENT_SECRET'),
+        'sandbox' => env('PAYPAL_SANDBOX', true),
+    ],
+
     'sslcommerz' => [
         'store_id' => env('SSLCOMMERZ_STORE_ID'),
         'store_password' => env('SSLCOMMERZ_STORE_PASSWORD'),

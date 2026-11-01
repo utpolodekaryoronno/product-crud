@@ -13,7 +13,7 @@
         </nav>
 
         <h1 class="mt-4 text-3xl font-semibold tracking-tight text-slate-900">Checkout</h1>
-        <p class="mt-1 text-sm text-slate-500">Enter your delivery details and pay securely with SSLCommerz.</p>
+        <p class="mt-1 text-sm text-slate-500">Enter your delivery details and choose a secure payment method.</p>
 
         @if ($testMode)
             <div class="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-5 text-sm text-sky-900">
@@ -32,7 +32,7 @@
                     <code class="rounded bg-amber-100 px-1 py-0.5">SSLCOMMERZ_STORE_PASSWORD</code> to your
                     <code class="rounded bg-amber-100 px-1 py-0.5">.env</code> file, then run
                     <code class="rounded bg-amber-100 px-1 py-0.5">php artisan config:clear</code>.
-                    The payment buttons stay disabled until the gateway is ready.
+                    SSLCommerz remains unavailable until the gateway is ready. You can still select PayPal if it is configured.
                 </p>
             </div>
         @endif
@@ -127,6 +127,19 @@
                     <span>{{ \App\Support\Money::format($subtotal) }} <span class="text-xs font-medium text-slate-400">{{ $currency }}</span></span>
                 </div>
 
+                @php($selectedPaymentMethod = old('payment_method', ($gatewayConfigured || $testMode) ? 'sslcommerz' : 'paypal'))
+                <fieldset class="mt-5 space-y-3">
+                    <legend class="text-sm font-semibold text-slate-900">Payment method</legend>
+                    <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                        <input type="radio" name="payment_method" value="sslcommerz" @checked($selectedPaymentMethod === 'sslcommerz') @disabled(! $gatewayConfigured && ! $testMode) class="mt-0.5 accent-slate-900">
+                        <span><strong class="block text-slate-900">SSLCommerz{{ $testMode ? ' (test mode)' : '' }}</strong><span class="text-slate-500">Cards, bKash, Nagad and local banking.</span></span>
+                    </label>
+                    <label class="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                        <input type="radio" name="payment_method" value="paypal" @checked($selectedPaymentMethod === 'paypal') @disabled(! $paypalConfigured || ! $paypalCurrencySupported) class="mt-0.5 accent-slate-900">
+                        <span><strong class="block text-slate-900">PayPal</strong><span class="text-slate-500">PayPal account and eligible cards. {{ ! $paypalCurrencySupported ? 'Unavailable for this currency.' : (! $paypalConfigured ? 'Coming soon — merchant credentials required.' : '') }}</span></span>
+                    </label>
+                </fieldset>
+
                 <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
                     <p class="flex items-center gap-2 text-sm font-semibold text-slate-900">
                         <svg class="size-4 text-emerald-600" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -150,7 +163,7 @@
 
                 <button
                     type="submit"
-                    @disabled(! $gatewayConfigured && ! $testMode)
+                    @disabled(! $gatewayConfigured && ! $testMode && (! $paypalConfigured || ! $paypalCurrencySupported))
                     class="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                 >
                     Pay {{ \App\Support\Money::format($subtotal) }}

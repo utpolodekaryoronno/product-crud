@@ -24,6 +24,7 @@ use Illuminate\Support\Str;
     'status',
     'payment_gateway',
     'tran_id',
+    'paypal_order_id',
     'val_id',
     'paid_at',
 ])]

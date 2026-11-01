@@ -56,6 +56,7 @@ class OrdersTable
                     ->label('Gateway')
                     ->options([
                         'sslcommerz' => 'SSLCommerz',
+                        'paypal' => 'PayPal',
                     ]),
             ])
             ->recordActions([
