@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Resources\Brands\Pages\CreateBrand;
 use App\Filament\Resources\Products\Pages\CreateProduct;
 use App\Filament\Resources\Products\Pages\EditProduct;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use Filament\Actions\DeleteAction;
@@ -130,5 +131,35 @@ class ProductAdminTest extends TestCase
             ->callAction(DeleteAction::class);
 
         $this->assertDatabaseMissing('products', ['id' => $product->id]);
+    }
+
+    public function test_an_admin_can_review_orders(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $order = Order::factory()->create([
+            'order_number' => 'PC-20261101-ABC123',
+            'customer_name' => 'Test Buyer',
+            'customer_email' => 'buyer@example.com',
+            'total_amount' => 250,
+            'currency' => 'USD',
+        ]);
+
+        $order->items()->create([
+            'product_name' => 'Aurora Desk Lamp',
+            'unit_price' => 125,
+            'quantity' => 2,
+            'line_total' => 250,
+        ]);
+
+        $this->get('/admin/orders')
+            ->assertOk()
+            ->assertSee('PC-20261101-ABC123')
+            ->assertSee('Test Buyer');
+
+        $this->get('/admin/orders/'.$order->order_number)
+            ->assertOk()
+            ->assertSee('PC-20261101-ABC123')
+            ->assertSee('Aurora Desk Lamp');
     }
 }

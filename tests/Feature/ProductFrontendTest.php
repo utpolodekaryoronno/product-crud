@@ -109,6 +109,17 @@ class ProductFrontendTest extends TestCase
             ->assertSee('Bestseller');
     }
 
+    public function test_the_product_image_supports_hover_zoom(): void
+    {
+        $product = Product::factory()->active()->create();
+
+        $this->get(route('products.show', $product))
+            ->assertOk()
+            ->assertSee('data-zoom-container', false)
+            ->assertSee('data-zoom-image', false)
+            ->assertSee('Hover to zoom');
+    }
+
     public function test_hidden_products_return_a_not_found_response(): void
     {
         $product = Product::factory()->inactive()->create();

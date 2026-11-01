@@ -1,0 +1,226 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\OrderStatus;
+use App\Models\Order;
+use App\Models\Product;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+use Tests\TestCase;
+
+class CheckoutTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config()->set('services.sslcommerz.store_id', 'test-store');
+        config()->set('services.sslcommerz.store_password', 'test-password');
+        config()->set('services.sslcommerz.sandbox', true);
+        config()->set('services.sslcommerz.currency', 'USD');
+    }
+
+    public function test_checkout_requires_products_in_the_cart(): void
+    {
+        $this->get(route('checkout.create'))
+            ->assertRedirect(route('cart.index'))
+            ->assertSessionHas('error');
+    }
+
+    public function test_the_checkout_page_shows_the_order_summary(): void
+    {
+        $product = Product::factory()->active()->create([
+            'product_name' => 'Alpine Daypack',
+            'price' => 74,
+            'stock' => 10,
+        ]);
+
+        $this->withSession(['cart.items' => [$product->id => 1]])
+            ->get(route('checkout.create'))
+            ->assertOk()
+            ->assertSee('Alpine Daypack')
+            ->assertSee('SSLCommerz');
+    }
+
+    public function test_checkout_creates_an_order_and_redirects_to_sslcommerz(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'sandbox.sslcommerz.com/gwprocess/*' => Http::response([
+                'status' => 'SUCCESS',
+                'GatewayPageURL' => 'https://sandbox.sslcommerz.com/EasyCheckOut/test-session',
+            ]),
+        ]);
+
+        $product = Product::factory()->active()->create([
+            'price' => 120,
+            'stock' => 10,
+        ]);
+
+        $this->withSession(['cart.items' => [$product->id => 2]])
+            ->post(route('checkout.store'), $this->checkoutPayload())
+            ->assertRedirect('https://sandbox.sslcommerz.com/EasyCheckOut/test-session');
+
+        $order = Order::query()->firstOrFail();
+
+        $this->assertSame('240.00', $order->total_amount);
+        $this->assertSame('USD', $order->currency);
+        $this->assertSame(OrderStatus::Pending, $order->status);
+        $this->assertSame(2, $order->items()->sum('quantity'));
+        $this->assertSame($order->id, session('checkout.order_id'));
+
+        Http::assertSent(function (Request $request) use ($order): bool {
+            $data = $request->data();
+
+            return $request->url() === 'https://sandbox.sslcommerz.com/gwprocess/v4/api.php'
+                && $data['tran_id'] === $order->tran_id
+                && $data['total_amount'] === '240.00'
+                && $data['currency'] === 'USD';
+        });
+    }
+
+    public function test_checkout_is_blocked_when_sslcommerz_is_not_configured(): void
+    {
+        config()->set('services.sslcommerz.store_id', null);
+        config()->set('services.sslcommerz.store_password', null);
+
+        Http::preventStrayRequests();
+
+        $product = Product::factory()->active()->create(['stock' => 10]);
+
+        $this->withSession(['cart.items' => [$product->id => 1]])
+            ->post(route('checkout.store'), $this->checkoutPayload())
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseCount('orders', 0);
+    }
+
+    public function test_a_valid_payment_marks_the_order_paid_and_reduces_stock(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'sandbox.sslcommerz.com/validator/*' => Http::response([
+                'status' => 'VALID',
+                'tran_id' => 'TXN-PAID',
+                'amount' => '100.00',
+                'currency' => 'USD',
+                'val_id' => 'VAL-123',
+            ]),
+        ]);
+
+        $product = Product::factory()->active()->create(['price' => 50, 'stock' => 10]);
+        $order = $this->createPendingOrder($product, 'TXN-PAID');
+
+        $this->withSession(['cart.items' => [$product->id => 2]])
+            ->post(route('payments.sslcommerz.success'), [
+                'tran_id' => 'TXN-PAID',
+                'val_id' => 'VAL-123',
+            ])
+            ->assertRedirect(route('checkout.confirmation', $order));
+
+        $order->refresh();
+
+        $this->assertTrue($order->isPaid());
+        $this->assertSame('VAL-123', $order->val_id);
+        $this->assertNotNull($order->paid_at);
+        $this->assertSame(8, $product->fresh()->stock);
+        $this->assertSame([], session('cart.items', []));
+    }
+
+    public function test_a_payment_with_a_mismatched_amount_is_rejected(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'sandbox.sslcommerz.com/validator/*' => Http::response([
+                'status' => 'VALID',
+                'tran_id' => 'TXN-MISMATCH',
+                'amount' => '99.00',
+                'currency' => 'USD',
+                'val_id' => 'VAL-999',
+            ]),
+        ]);
+
+        $product = Product::factory()->active()->create(['price' => 50, 'stock' => 10]);
+        $order = $this->createPendingOrder($product, 'TXN-MISMATCH');
+
+        $this->post(route('payments.sslcommerz.success'), [
+            'tran_id' => 'TXN-MISMATCH',
+            'val_id' => 'VAL-999',
+        ])->assertSessionHas('error');
+
+        $order->refresh();
+
+        $this->assertSame(OrderStatus::Failed, $order->status);
+        $this->assertNull($order->paid_at);
+        $this->assertSame(10, $product->fresh()->stock);
+    }
+
+    public function test_a_failed_payment_marks_the_order_failed(): void
+    {
+        $product = Product::factory()->active()->create(['price' => 50, 'stock' => 10]);
+        $order = $this->createPendingOrder($product, 'TXN-FAILED');
+
+        $this->post(route('payments.sslcommerz.fail'), ['tran_id' => 'TXN-FAILED'])
+            ->assertRedirect(route('checkout.create'))
+            ->assertSessionHas('error');
+
+        $this->assertSame(OrderStatus::Failed, $order->fresh()->status);
+    }
+
+    public function test_the_confirmation_page_requires_the_checkout_session(): void
+    {
+        $product = Product::factory()->active()->create(['price' => 50, 'stock' => 10]);
+        $order = $this->createPendingOrder($product, 'TXN-CONFIRM');
+
+        $this->get(route('checkout.confirmation', $order))->assertNotFound();
+
+        $this->withSession(['checkout.order_id' => $order->id])
+            ->get(route('checkout.confirmation', $order))
+            ->assertOk()
+            ->assertSee($order->order_number)
+            ->assertSee('Thank you for your order');
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function checkoutPayload(): array
+    {
+        return [
+            'customer_name' => 'Test Customer',
+            'customer_email' => 'customer@example.com',
+            'customer_phone' => '01700000000',
+            'shipping_address' => '12 Lake Road',
+            'city' => 'Dhaka',
+            'postcode' => '1205',
+            'notes' => 'Leave at the front desk.',
+        ];
+    }
+
+    private function createPendingOrder(Product $product, string $transactionId): Order
+    {
+        $order = Order::factory()->create([
+            'status' => OrderStatus::Pending,
+            'payment_gateway' => 'sslcommerz',
+            'tran_id' => $transactionId,
+            'total_amount' => (float) $product->price * 2,
+            'currency' => 'USD',
+            'paid_at' => null,
+            'val_id' => null,
+        ]);
+
+        $order->items()->create([
+            'product_id' => $product->id,
+            'product_name' => $product->product_name,
+            'unit_price' => $product->price,
+            'quantity' => 2,
+            'line_total' => (float) $product->price * 2,
+        ]);
+
+        return $order;
+    }
+}

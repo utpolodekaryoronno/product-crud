@@ -22,12 +22,21 @@
         </nav>
 
         <div class="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
-            <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+            <div
+                class="group/zoom relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+                data-zoom-container
+                data-zoom-scale="2.2"
+            >
                 <img
                     src="{{ $product->thumbnail_url }}"
                     alt="{{ $product->product_name }}"
-                    class="aspect-square w-full object-cover"
+                    class="aspect-square w-full cursor-zoom-in object-cover transition-transform duration-200 ease-out will-change-transform"
+                    data-zoom-image
                 >
+
+                <span class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-slate-900/75 px-3 py-1 text-xs font-medium text-white backdrop-blur transition group-hover/zoom:opacity-0">
+                    Hover to zoom
+                </span>
             </div>
 
             <div class="flex flex-col justify-center">
@@ -80,7 +89,7 @@
                 @endif
 
                 <p class="mt-4 text-3xl font-semibold tracking-tight text-slate-900">
-                    ${{ number_format((float) $product->price, 2) }}
+                    {{ \App\Support\Money::format($product->price) }}
                 </p>
 
                 <div class="mt-6 border-t border-slate-200 pt-6">
@@ -113,7 +122,7 @@
                     @endif
                     <div>
                         <dt class="text-slate-500">Shipping</dt>
-                        <dd class="mt-1 font-semibold text-slate-900">Free over $75</dd>
+                        <dd class="mt-1 font-semibold text-slate-900">Free over {{ \App\Support\Money::format(75) }}</dd>
                     </div>
                     <div>
                         <dt class="text-slate-500">Returns</dt>
@@ -121,16 +130,51 @@
                     </div>
                 </dl>
 
-                <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-                    <a href="{{ route('products.index') }}" class="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800">
-                        <svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                            <path d="M16 10H4M9 5l-5 5 5 5" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        Back to all products
-                    </a>
-                    <a href="mailto:hello@example.com?subject={{ urlencode('Question about '.$product->product_name) }}" class="inline-flex h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900">
-                        Ask a question
-                    </a>
+                <div class="mt-8 border-t border-slate-200 pt-6">
+                    @if ($product->is_out_of_stock)
+                        <p class="rounded-xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-600">
+                            This product is currently sold out. Check back soon.
+                        </p>
+                    @else
+                        <form method="POST" action="{{ route('cart.store') }}" class="flex flex-col gap-3 sm:flex-row">
+                            @csrf
+                            <input type="hidden" name="product_id" value="{{ $product->id }}">
+
+                            <div class="sm:w-28">
+                                <label for="quantity" class="sr-only">Quantity</label>
+                                <input
+                                    id="quantity"
+                                    type="number"
+                                    name="quantity"
+                                    value="1"
+                                    min="1"
+                                    max="{{ $product->stock }}"
+                                    class="h-12 w-full rounded-xl border border-slate-300 bg-white px-3 text-center text-sm font-semibold text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                                >
+                            </div>
+
+                            <button type="submit" class="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-800">
+                                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                    <path d="M3 4h2l2.4 10.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.6L21 8H6" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="9.5" cy="20" r="1.4"/>
+                                    <circle cx="17.5" cy="20" r="1.4"/>
+                                </svg>
+                                Add to cart
+                            </button>
+                        </form>
+                    @endif
+
+                    <div class="mt-3 flex flex-col gap-3 sm:flex-row">
+                        <a href="mailto:hello@example.com?subject={{ urlencode('Question about '.$product->product_name) }}" class="inline-flex h-12 flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900">
+                            Ask a question
+                        </a>
+                        <a href="{{ route('products.index') }}" class="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-6 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900">
+                            <svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                                <path d="M16 10H4M9 5l-5 5 5 5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Back to products
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
