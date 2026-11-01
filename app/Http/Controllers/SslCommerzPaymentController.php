@@ -8,10 +8,12 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Services\CartService;
 use App\Services\SslCommerzService;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class SslCommerzPaymentController extends Controller
 {
@@ -133,6 +135,81 @@ class SslCommerzPaymentController extends Controller
         $this->markAsPaid($order, $validationId);
 
         return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Show the simulated payment page used while test mode is enabled.
+     */
+    public function simulate(Request $request, Order $order, SslCommerzService $gateway): View|RedirectResponse
+    {
+        $this->authorizeSimulatedOrder($request, $order, $gateway);
+
+        if ($order->isPaid()) {
+            return $this->confirmationRedirect($request, $order);
+        }
+
+        $order->load('items');
+
+        return view('checkout.simulate', [
+            'order' => $order,
+        ]);
+    }
+
+    /**
+     * Complete a simulated payment successfully.
+     */
+    public function simulateSuccess(Request $request, Order $order, CartService $cart, SslCommerzService $gateway): RedirectResponse
+    {
+        $this->authorizeSimulatedOrder($request, $order, $gateway);
+
+        if (! $order->isPaid()) {
+            $this->markAsPaid($order, 'TEST-'.Str::upper(Str::random(12)));
+        }
+
+        $cart->clear();
+
+        return $this->confirmationRedirect($request, $order);
+    }
+
+    /**
+     * Decline a simulated payment.
+     */
+    public function simulateFail(Request $request, Order $order, SslCommerzService $gateway): RedirectResponse
+    {
+        $this->authorizeSimulatedOrder($request, $order, $gateway);
+
+        if (! $order->isPaid()) {
+            $order->update(['status' => OrderStatus::Failed]);
+        }
+
+        return redirect()
+            ->route('checkout.create')
+            ->with('error', 'Test payment declined. Your cart is still waiting for you.');
+    }
+
+    /**
+     * Cancel a simulated payment.
+     */
+    public function simulateCancel(Request $request, Order $order, SslCommerzService $gateway): RedirectResponse
+    {
+        $this->authorizeSimulatedOrder($request, $order, $gateway);
+
+        if (! $order->isPaid()) {
+            $order->update(['status' => OrderStatus::Cancelled]);
+        }
+
+        return redirect()
+            ->route('cart.index')
+            ->with('error', 'Test payment cancelled. Your cart is still waiting for you.');
+    }
+
+    /**
+     * Ensure simulated payments are enabled and belong to the current session.
+     */
+    private function authorizeSimulatedOrder(Request $request, Order $order, SslCommerzService $gateway): void
+    {
+        abort_unless($gateway->testModeEnabled(), 404);
+        abort_unless((int) $request->session()->get('checkout.order_id') === $order->id, 404);
     }
 
     /**

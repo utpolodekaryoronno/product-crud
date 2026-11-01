@@ -21,6 +21,7 @@ class CheckoutTest extends TestCase
         config()->set('services.sslcommerz.store_id', 'test-store');
         config()->set('services.sslcommerz.store_password', 'test-password');
         config()->set('services.sslcommerz.sandbox', true);
+        config()->set('services.sslcommerz.test_mode', false);
         config()->set('services.sslcommerz.currency', 'USD');
     }
 
@@ -157,6 +158,103 @@ class CheckoutTest extends TestCase
         $this->assertSame(OrderStatus::Failed, $order->status);
         $this->assertNull($order->paid_at);
         $this->assertSame(10, $product->fresh()->stock);
+    }
+
+    public function test_the_checkout_page_shows_a_test_mode_notice(): void
+    {
+        config()->set('services.sslcommerz.test_mode', true);
+
+        $product = Product::factory()->active()->create(['stock' => 10]);
+
+        $this->withSession(['cart.items' => [$product->id => 1]])
+            ->get(route('checkout.create'))
+            ->assertOk()
+            ->assertSee('SSLCommerz test mode is on')
+            ->assertDontSee('SSLCommerz is not configured yet');
+    }
+
+    public function test_checkout_can_be_completed_in_test_mode_without_credentials(): void
+    {
+        config()->set('services.sslcommerz.store_id', null);
+        config()->set('services.sslcommerz.store_password', null);
+        config()->set('services.sslcommerz.test_mode', true);
+
+        Http::preventStrayRequests();
+
+        $product = Product::factory()->active()->create([
+            'price' => 50,
+            'stock' => 10,
+        ]);
+
+        $this->withSession(['cart.items' => [$product->id => 2]])
+            ->post(route('checkout.store'), $this->checkoutPayload());
+
+        $order = Order::query()->firstOrFail();
+
+        $this->assertSame(OrderStatus::Pending, $order->status);
+
+        $this->get(route('payments.sslcommerz.simulate', $order))
+            ->assertOk()
+            ->assertSee('Test mode')
+            ->assertSee($order->order_number);
+
+        $this->post(route('payments.sslcommerz.simulate.success', $order))
+            ->assertRedirect(route('checkout.confirmation', $order));
+
+        $order->refresh();
+
+        $this->assertTrue($order->isPaid());
+        $this->assertStringStartsWith('TEST-', $order->val_id);
+        $this->assertSame(8, $product->fresh()->stock);
+        $this->assertSame([], session('cart.items', []));
+    }
+
+    public function test_a_simulated_payment_can_be_declined(): void
+    {
+        config()->set('services.sslcommerz.test_mode', true);
+
+        $product = Product::factory()->active()->create(['price' => 50, 'stock' => 10]);
+        $order = $this->createPendingOrder($product, 'TXN-SIMULATE-FAIL');
+
+        $this->withSession(['checkout.order_id' => $order->id])
+            ->post(route('payments.sslcommerz.simulate.fail', $order))
+            ->assertRedirect(route('checkout.create'));
+
+        $this->assertSame(OrderStatus::Failed, $order->fresh()->status);
+    }
+
+    public function test_a_simulated_payment_can_be_cancelled(): void
+    {
+        config()->set('services.sslcommerz.test_mode', true);
+
+        $product = Product::factory()->active()->create(['price' => 50, 'stock' => 10]);
+        $order = $this->createPendingOrder($product, 'TXN-SIMULATE-CANCEL');
+
+        $this->withSession(['checkout.order_id' => $order->id])
+            ->post(route('payments.sslcommerz.simulate.cancel', $order))
+            ->assertRedirect(route('cart.index'));
+
+        $this->assertSame(OrderStatus::Cancelled, $order->fresh()->status);
+    }
+
+    public function test_simulated_payment_pages_are_hidden_when_test_mode_is_off(): void
+    {
+        $product = Product::factory()->active()->create(['price' => 50, 'stock' => 10]);
+        $order = $this->createPendingOrder($product, 'TXN-NO-TEST-MODE');
+
+        $this->withSession(['checkout.order_id' => $order->id])
+            ->get(route('payments.sslcommerz.simulate', $order))
+            ->assertNotFound();
+    }
+
+    public function test_simulated_payment_requires_the_checkout_session(): void
+    {
+        config()->set('services.sslcommerz.test_mode', true);
+
+        $product = Product::factory()->active()->create(['price' => 50, 'stock' => 10]);
+        $order = $this->createPendingOrder($product, 'TXN-SIMULATE-GUEST');
+
+        $this->get(route('payments.sslcommerz.simulate', $order))->assertNotFound();
     }
 
     public function test_a_failed_payment_marks_the_order_failed(): void

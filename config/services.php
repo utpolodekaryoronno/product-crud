@@ -39,6 +39,7 @@ return [
         'store_id' => env('SSLCOMMERZ_STORE_ID'),
         'store_password' => env('SSLCOMMERZ_STORE_PASSWORD'),
         'sandbox' => env('SSLCOMMERZ_SANDBOX', true),
+        'test_mode' => env('SSLCOMMERZ_TEST_MODE', false),
         'currency' => env('SSLCOMMERZ_CURRENCY', env('SHOP_CURRENCY', 'USD')),
         'country' => env('SSLCOMMERZ_CUSTOMER_COUNTRY', 'Bangladesh'),
     ],

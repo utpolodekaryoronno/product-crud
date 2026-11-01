@@ -32,6 +32,7 @@ class CheckoutController extends Controller
             'items' => $items,
             'subtotal' => $cart->subtotal(),
             'gatewayConfigured' => $gateway->isConfigured(),
+            'testMode' => $gateway->testModeEnabled(),
             'currency' => config('services.sslcommerz.currency'),
         ]);
     }
@@ -59,7 +60,9 @@ class CheckoutController extends Controller
                 ->with('error', 'Your cart is empty. Add a product before checking out.');
         }
 
-        if (! $gateway->isConfigured()) {
+        $testMode = $gateway->testModeEnabled();
+
+        if (! $testMode && ! $gateway->isConfigured()) {
             return back()
                 ->withInput()
                 ->with('error', 'SSLCommerz is not configured yet. Add your store credentials to the environment file.');
@@ -90,6 +93,10 @@ class CheckoutController extends Controller
         });
 
         $request->session()->put('checkout.order_id', $order->id);
+
+        if ($testMode) {
+            return redirect()->route('payments.sslcommerz.simulate', $order);
+        }
 
         try {
             $gatewayUrl = $gateway->initiate($order);

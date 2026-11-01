@@ -19,6 +19,15 @@ Route::get('/checkout', [CheckoutController::class, 'create'])->name('checkout.c
 Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
 Route::get('/orders/{order}', [CheckoutController::class, 'confirmation'])->name('checkout.confirmation');
 
+Route::get('/payment/sslcommerz/simulate/{order}', [SslCommerzPaymentController::class, 'simulate'])
+    ->name('payments.sslcommerz.simulate');
+Route::post('/payment/sslcommerz/simulate/{order}/success', [SslCommerzPaymentController::class, 'simulateSuccess'])
+    ->name('payments.sslcommerz.simulate.success');
+Route::post('/payment/sslcommerz/simulate/{order}/fail', [SslCommerzPaymentController::class, 'simulateFail'])
+    ->name('payments.sslcommerz.simulate.fail');
+Route::post('/payment/sslcommerz/simulate/{order}/cancel', [SslCommerzPaymentController::class, 'simulateCancel'])
+    ->name('payments.sslcommerz.simulate.cancel');
+
 Route::post('/payment/sslcommerz/success', [SslCommerzPaymentController::class, 'success'])
     ->name('payments.sslcommerz.success');
 Route::post('/payment/sslcommerz/fail', [SslCommerzPaymentController::class, 'fail'])

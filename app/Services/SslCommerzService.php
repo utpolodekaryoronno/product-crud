@@ -19,6 +19,14 @@ class SslCommerzService
     }
 
     /**
+     * Determine whether simulated payments are allowed in this environment.
+     */
+    public function testModeEnabled(): bool
+    {
+        return (bool) config('services.sslcommerz.test_mode') && ! app()->isProduction();
+    }
+
+    /**
      * Create a payment session and return the hosted checkout URL.
      *
      * @throws SslCommerzException

@@ -49,6 +49,11 @@
                         @if ($order->val_id)
                             <span class="mt-1 block font-mono text-xs text-slate-400">{{ $order->val_id }}</span>
                         @endif
+                        @if ($order->val_id && str_starts_with($order->val_id, 'TEST-'))
+                            <span class="mt-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                                Test payment &middot; no money was taken
+                            </span>
+                        @endif
                     </p>
                 </div>
             </div>

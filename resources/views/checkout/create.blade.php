@@ -15,7 +15,16 @@
         <h1 class="mt-4 text-3xl font-semibold tracking-tight text-slate-900">Checkout</h1>
         <p class="mt-1 text-sm text-slate-500">Enter your delivery details and pay securely with SSLCommerz.</p>
 
-        @unless ($gatewayConfigured)
+        @if ($testMode)
+            <div class="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-5 text-sm text-sky-900">
+                <p class="font-semibold">SSLCommerz test mode is on</p>
+                <p class="mt-1">
+                    Payments are simulated on the next screen. No money moves and no gateway credentials are needed.
+                    Set <code class="rounded bg-sky-100 px-1 py-0.5">SSLCOMMERZ_TEST_MODE=false</code> and add your
+                    store credentials before going live.
+                </p>
+            </div>
+        @elseif (! $gatewayConfigured)
             <div class="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
                 <p class="font-semibold">SSLCommerz is not configured yet</p>
                 <p class="mt-1">
@@ -26,7 +35,7 @@
                     The payment buttons stay disabled until the gateway is ready.
                 </p>
             </div>
-        @endunless
+        @endif
 
         <form method="POST" action="{{ route('checkout.store') }}" class="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
             @csrf
@@ -124,16 +133,24 @@
                             <path d="M10 2.5 4 5v5c0 3.4 2.4 6.2 6 7.5 3.6-1.3 6-4.1 6-7.5V5l-6-2.5Z" stroke-linejoin="round"/>
                             <path d="m7.5 10 1.8 1.8 3.4-3.8" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
-                        SSLCommerz secure checkout
+                        @if ($testMode)
+                            SSLCommerz test checkout
+                        @else
+                            SSLCommerz secure checkout
+                        @endif
                     </p>
                     <p class="mt-1 text-xs leading-relaxed text-slate-500">
-                        Pay with Visa, Mastercard, bKash, Nagad, Rocket or internet banking. You will be redirected to SSLCommerz to finish the payment.
+                        @if ($testMode)
+                            You will choose whether the simulated payment succeeds, fails or is cancelled. Real stock levels and order records are still updated.
+                        @else
+                            Pay with Visa, Mastercard, bKash, Nagad, Rocket or internet banking. You will be redirected to SSLCommerz to finish the payment.
+                        @endif
                     </p>
                 </div>
 
                 <button
                     type="submit"
-                    @disabled(! $gatewayConfigured)
+                    @disabled(! $gatewayConfigured && ! $testMode)
                     class="mt-5 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
                 >
                     Pay {{ \App\Support\Money::format($subtotal) }}
